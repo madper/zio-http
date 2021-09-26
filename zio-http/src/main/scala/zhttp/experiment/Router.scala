@@ -5,7 +5,7 @@ import zhttp.http._
 import zio._
 
 sealed trait Router[A] { self =>
-  def /(name: String)                                                                = RouteSet(OnlyString(name), self)
+  def /(name: String)                                                                = RouteSet(self,OnlyString(name))
   def /[B, C](other: Router[B])(implicit ev: Router.Combine.Aux[A, B, C]): Router[C] = RouteSet(self, other)
 }
 
@@ -26,9 +26,9 @@ object Router {
     }
   }
 
-  case class Arg[A]() extends Router[A]
+  sealed trait Arg[A] extends Router[A]
   object Arg {
-    def apply[A](implicit ev: RouteParam[A]): Router[A] = new Arg()
+    def apply[A](implicit ev: RouteParam[A]): Router[A] = ???
   }
 
   class RouteSet[A, B, C](val head: Router[A], val tail: Router[B]) extends Router[C]
@@ -43,7 +43,7 @@ object Router {
       OnlyMethod(method) / other
   }
 
-  val route: Router[(Int, String)] = Method.GET / Arg[Int] / Arg[String] / "c"
+  val route: Router[(Int, String)] = Method.GET / Arg[Int] /Arg[String] /"s"
 
   trait Request {
     def is[A](router: Router[A]): Boolean
@@ -65,7 +65,7 @@ object Router {
     }
 
     // scalafmt: { maxColumn = 1200 }
-
+    implicit def combine0[A, B](implicit ev: B =:= Unit): Combine.Aux[A, B, A]                                                                                = null
     implicit def combine0[A, B](implicit ev: A =:= Unit): Combine.Aux[A, B, B]                                                                                = null
     implicit def combine1[A, B](implicit evA: RouteParam[A], evB: RouteParam[B]): Combine.Aux[A, B, (A, B)]                                                   = null
     implicit def combine2[A, B, T1, T2](implicit evA: A =:= (T1, T2), evB: RouteParam[B]): Combine.Aux[A, B, (T1, T2, B)]                                     = null
