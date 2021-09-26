@@ -10,8 +10,9 @@ sealed trait Router[A] { self =>
 }
 
 object Router {
-  case class OnlyMethod(v: Method) extends Router[Unit]
-  case class OnlyString(v: String) extends Router[Unit]
+  case class OnlyMethod(v: Method)         extends Router[Unit]
+  case class OnlyString(v: String)         extends Router[Unit]
+  case class OnlyType[A](v: RouteParam[A]) extends Router[A]
   // Extract
   trait RouteParam[A] {
     def extract(data: String): Option[A]
@@ -28,7 +29,7 @@ object Router {
 
   sealed trait Arg[A] extends Router[A]
   object Arg {
-    def apply[A](implicit ev: RouteParam[A]): Router[A] = ???
+    def apply[A](implicit ev: RouteParam[A]): Router[A] = OnlyType(ev)
   }
 
   class RouteSet[A, B, C](val head: Router[A], val tail: Router[B]) extends Router[C]
