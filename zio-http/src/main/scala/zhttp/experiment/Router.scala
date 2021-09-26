@@ -1,15 +1,17 @@
 package zhttp.experiment
 
+import zhttp.experiment.Router.{OnlyString, RouteSet}
 import zhttp.http._
 import zio._
 
-sealed trait Router[A] {
-  def /(name: String): Router[A]                                                     = ???
-  def /[B, C](other: Router[B])(implicit ev: Router.Combine.Aux[A, B, C]): Router[C] = ???
+sealed trait Router[A] { self =>
+  def /(name: String)                                                                = RouteSet(OnlyString(name), self)
+  def /[B, C](other: Router[B])(implicit ev: Router.Combine.Aux[A, B, C]): Router[C] = RouteSet(self, other)
 }
 
 object Router {
-
+  case class OnlyMethod(v: Method) extends Router[Unit]
+  case class OnlyString(v: String) extends Router[Unit]
   // Extract
   trait RouteParam[A] {
     def extract(data: String): Option[A]
@@ -24,17 +26,24 @@ object Router {
     }
   }
 
-  sealed trait ![A] extends Router[A]
-  object ! {
-    def apply[A](implicit ev: RouteParam[A]): Router[A] = ???
+  case class Arg[A]() extends Router[A]
+  object Arg {
+    def apply[A](implicit ev: RouteParam[A]): Router[A] = new Arg()
+  }
+
+  class RouteSet[A, B, C](val head: Router[A], val tail: Router[B]) extends Router[C]
+  object RouteSet {
+    def apply[A, B, C](head: Router[A], tail: Router[B])(implicit ev: Router.Combine.Aux[A, B, C]): Router[C] =
+      new RouteSet(head, tail)
   }
 
   implicit final class MethodRouterSyntax(val method: Method) extends AnyVal {
-    def /(name: String): Router[Unit]                                              = ???
-    def /[B, C](other: Router[B])(implicit ev: Combine.Aux[Unit, B, C]): Router[C] = ???
+    def /(name: String): Router[Unit]                                              = OnlyMethod(method) / name
+    def /[B, C](other: Router[B])(implicit ev: Combine.Aux[Unit, B, C]): Router[C] =
+      OnlyMethod(method) / other
   }
 
-  val route = Method.GET / "a" / "b" / ![Int] / "c" / ![String] / ![Int]
+  val route: Router[(Int, String)] = Method.GET / Arg[Int] / Arg[String] / "c"
 
   trait Request {
     def is[A](router: Router[A]): Boolean
